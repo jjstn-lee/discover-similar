@@ -12,14 +12,13 @@ export default function Home() {
     if (!session?.accessToken) return;
 
     try {
-      const res = await fetch("/api/seed-interpreter", {
+      const res = await fetch("/api/get-recommendations", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          userInput: "like Phoebe Bridgers but even more ambient",
-          seedArtist: "Phoebe Bridgers",
+          userInput: "Arctic Monkey's AM album but with more danceability",
         }),
       });
 

@@ -1,9 +1,9 @@
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { StructuredOutputParser } from "langchain/output_parsers";
+
 import { z } from "zod";
 
-// Zod schema that matches the expected JSON structure
 const entrySchema = z.object({
   song_title: z.string().optional(),
   artist: z.string().optional(),
@@ -58,16 +58,13 @@ const llm = new ChatGoogleGenerativeAI({
 
 export async function extractEntries(userInput: string) {
   try {
-    // Step 1: Format the prompt
     const messages = await extractPrompt.formatMessages({
       userInput,
       formatInstructions,
     });
 
-    // Step 2: Call Gemini
     const llmOutput = await llm.invoke(messages);
 
-    // Step 3: Extract text from llmOutput.content
     let rawText = "";
     if (typeof llmOutput.content === "string") {
       rawText = llmOutput.content;
@@ -85,10 +82,8 @@ export async function extractEntries(userInput: string) {
     }
     rawText = rawText.trim();
 
-    // Step 4: Clean Markdown and parse JSON
     const cleanedText = rawText.replace(/```json|```/g, "").trim();
     
-    // Step 5: Parse with the structured parser
     const result = await parser.parse(cleanedText);
 
     console.log("Parsed result:", result);

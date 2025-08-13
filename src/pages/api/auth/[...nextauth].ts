@@ -1,10 +1,18 @@
+// pages/api/auth/[...nextauth].ts
 import NextAuth from "next-auth";
 import SpotifyProvider from "next-auth/providers/spotify";
 import type { NextAuthOptions } from "next-auth";
 import { SpotifyAccount } from "@/types/next-auth";
 
-const SPOTIFY_AUTHORIZATION_URL =
-  "https://accounts.spotify.com/authorize?scope=user-read-email,user-top-read,user-library-read,user-read-recently-played,playlist-modify-public,playlist-modify-private";
+// Define scopes in one place to avoid mismatches
+const SPOTIFY_SCOPES = [
+  "user-read-email",
+  "user-top-read", 
+  "user-library-read",
+  "user-read-recently-played",
+  "playlist-modify-public",
+  "playlist-modify-private"
+].join(" ");
 
 async function refreshAccessToken(token: any) {
   try {
@@ -32,7 +40,7 @@ async function refreshAccessToken(token: any) {
       ...token,
       accessToken: refreshed.access_token,
       accessTokenExpires: Date.now() + refreshed.expires_in * 1000,
-      refreshToken: refreshed.refresh_token ?? token.refreshToken, // Use new refresh token if provided
+      refreshToken: refreshed.refresh_token ?? token.refreshToken,
     };
   } catch (error) {
     console.error("Error refreshing Spotify access token:", error);
@@ -50,23 +58,26 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.SPOTIFY_CLIENT_SECRET!,
       authorization: {
         params: {
-          scope: "user-read-email user-library-read user-top-read", // not in .env.local; declared top of file
+          scope: SPOTIFY_SCOPES,
           prompt: "consent",
+          show_dialog: "true",
         }
-        
       }
     }),
   ],
+  pages: {
+    signIn: "/login", // Custom login page
+    error: "/auth/error", // Custom error page
+  },
   callbacks: {
     async jwt({ token, account }) {
       // Initial sign in
       if (account && account.provider === "spotify") {
-
         const spotifyAccount = account as SpotifyAccount;
 
         return {
           accessToken: spotifyAccount.access_token,
-          accessTokenExpires: Date.now() + spotifyAccount.expires_in * 1000,
+          accessTokenExpires: Date.now() + (spotifyAccount.expires_in * 1000),
           refreshToken: spotifyAccount.refresh_token,
           user: token.user,
         };
@@ -85,7 +96,15 @@ export const authOptions: NextAuthOptions = {
       session.error = token.error;
       return session;
     },
+    async redirect({ url, baseUrl }) {
+      // Allows relative callback URLs
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      // Allows callback URLs on the same origin
+      else if (new URL(url).origin === baseUrl) return url;
+      return baseUrl;
+    },
   },
+  debug: process.env.NODE_ENV === "development",
 };
 
 export default NextAuth(authOptions);

@@ -1,74 +1,271 @@
-import { signIn, signOut, useSession } from "next-auth/react";
-import { useState } from "react";
-import axios from "axios";
+// pages/index.tsx
+import { signOut, useSession } from "next-auth/react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/router";
+import { searchSimilarMusic } from "@/lib/musicService";
+
+// type for search results
+type SearchResult = {
+  id: string;
+  score: number;
+  metadata: Record<string, any>;
+};
 
 export default function Home() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searchPerformed, setSearchPerformed] = useState(false);
 
-  // temp; remove later
-  const interpret = async () => {
-    if (!session?.accessToken) return;
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login");
+    }
+  }, [status, router]);
+
+  const handleSearch = async () => {
+    if (!query.trim()) {
+      setError("Please enter a search query");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setResults([]);
+    setSearchPerformed(true);
 
     try {
-      const res = await fetch("/api/get-recommendations", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userInput: "Arctic Monkey's AM album but with more danceability",
-        }),
-      });
-
-      const data = await res.json();
-      console.log(data);
-
+      console.log("Searching for:", query);
+      const result = await searchSimilarMusic(query, 10);
+      
+      console.log("Search result:", result);
+      
+      if (result.success && result.results) {
+        setResults(result.results);
+      } else {
+        setError(result.error || "Search failed");
+      }
     } catch (error) {
-      console.error("Error fetching top tracks", error);
+      console.error("Error during search:", error);
+      setError(error instanceof Error ? error.message : "An unexpected error occurred");
+    } finally {
+      setLoading(false);
     }
   };
 
+  // handle enter key press
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
+  // Show loading state while checking authentication
+  if (status === "loading") {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-8 bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-accent border-t-primary mb-4"></div>
+        <p className="text-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  // Don't render anything if not authenticated (prevents flash before redirect)
+  if (status === "unauthenticated") {
+    return null;
+  }
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-8 bg-gray-100">
-      {!session ? (
-        <button
-          type="button"
-          onClick={() => signIn("spotify")}
-          className="px-6 py-3 text-white bg-green-600 rounded-lg"
-        >
-          Login with Spotify
-        </button>
-      ) : (
-        <>
-          <div className="w-full max-w-xl">
-            <input
-              type="text"
-              className="w-full p-4 text-xl border border-gray-300 rounded-lg"
-              placeholder="search for songs..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-            <button
-              onClick={interpret}
-              className="mt-4 w-full bg-blue-600 text-white py-2 rounded-lg"
-            >
-              Search
-            </button>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b border-accent bg-secondary/50">
+        <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Discover Similar</h1>
           </div>
-          {/* <ul className="mt-6 w-full max-w-xl">
-            {results.map((track) => (
-              <li key={track.id} className="p-2 border-b">
-                {track.name} – {track.artists[0]?.name}
-              </li>
-            ))}
-          </ul> */}
-          <button onClick={() => signOut({ callbackUrl: '/' })} className="mt-6 text-red-600">
+          <button 
+            onClick={() => signOut({ callbackUrl: '/login' })} 
+            className="px-4 py-2 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded-lg transition-colors"
+          >
             Logout
           </button>
-        </>
-      )}
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-4xl mx-auto p-8">
+        {/* Search Section */}
+        <div className="mb-8">
+          <div className="max-w-2xl mx-auto">
+            <div className="mb-4 text-center">
+              <h2 className="text-3xl font-semibold text-foreground mb-2">
+                Find Similar Music
+              </h2>
+              <p className="text-accent">
+                Describe the type of music you're looking for and we'll find similar songs from your library
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <input
+                type="text"
+                className="w-full p-4 text-xl bg-secondary text-foreground border border-accent rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                placeholder="Search for songs... (e.g., 'upbeat pop songs' or 'relaxing acoustic music')"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyPress={handleKeyPress}
+                disabled={loading}
+              />
+              <button
+                onClick={handleSearch}
+                disabled={loading || !query.trim()}
+                className={`w-full py-3 rounded-lg text-background font-medium transition-colors flex items-center justify-center gap-2 ${
+                  loading || !query.trim()
+                    ? "bg-accent cursor-not-allowed"
+                    : "bg-primary hover:bg-primary/90"
+                }`}
+              >
+                {loading ? "Search Similar Music" : "Search Similar Music"}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Loading State */}
+        {loading && (
+          <div className="flex flex-col items-center justify-center p-12">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-accent border-t-primary mb-6"></div>
+            <h3 className="text-xl font-medium text-foreground mb-2">Searching for similar songs...</h3>
+            <p className="text-accent text-center">
+              Analyzing your input library and finding the best matches
+            </p>
+          </div>
+        )}
+
+        {/* Error Message */}
+        {error && (
+          <div className="max-w-2xl mx-auto mb-8">
+            <div className="p-4 bg-red-900/20 border border-red-500 text-red-400 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <strong>Error</strong>
+              </div>
+              <p>{error}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Results */}
+        {!loading && results.length > 0 && (
+          <div className="max-w-4xl mx-auto">
+            <div className="mb-6">
+              <h3 className="text-2xl font-semibold text-foreground mb-2">
+                Found {results.length} Similar Songs
+              </h3>
+              <p className="text-accent">Ranked by similarity to your search</p>
+            </div>
+            
+            <div className="grid gap-4">
+              {results.map((result, index) => (
+                <div 
+                  key={result.id} 
+                  className="p-6 bg-secondary rounded-xl shadow-sm border border-accent hover:bg-secondary/80 transition-colors"
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-8 h-8 bg-primary text-background rounded-full flex items-center justify-center font-bold text-sm">
+                          {index + 1}
+                        </div>
+                        <div>
+                          <div className="font-semibold text-foreground text-lg">
+                            {result.metadata.name || result.metadata.title || "Unknown Title"}
+                          </div>
+                          <div className="text-accent">
+                            {result.metadata.artist || result.metadata.artists?.[0] || "Unknown Artist"}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {result.metadata.album && (
+                        <div className="text-accent/70 text-sm mb-3 ml-11">
+                          Album: {result.metadata.album}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="text-right">
+                      <div className="bg-primary/20 text-primary px-3 py-1 rounded-full text-sm font-medium">
+                        {Math.round((1 - result.score) * 100)}% match
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Audio Features */}
+                  {(result.metadata.danceability || result.metadata.energy || result.metadata.valence) && (
+                    <div className="mt-4 pt-4 border-t border-accent/30 ml-11">
+                      <div className="flex flex-wrap gap-4 text-sm">
+                        {result.metadata.danceability && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-accent">Danceability:</span>
+                            <div className="bg-accent/20 px-2 py-1 rounded text-foreground">
+                              {Math.round(result.metadata.danceability * 100)}%
+                            </div>
+                          </div>
+                        )}
+                        {result.metadata.energy && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-accent">Energy:</span>
+                            <div className="bg-accent/20 px-2 py-1 rounded text-foreground">
+                              {Math.round(result.metadata.energy * 100)}%
+                            </div>
+                          </div>
+                        )}
+                        {result.metadata.valence && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-accent">Mood:</span>
+                            <div className="bg-accent/20 px-2 py-1 rounded text-foreground">
+                              {Math.round(result.metadata.valence * 100)}%
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* No Results - Only show after a search has been performed */}
+        {!loading && !error && results.length === 0 && query && searchPerformed && (
+          <div className="max-w-2xl mx-auto text-center p-12">
+            <div className="text-6xl mb-4">🎵</div>
+            <h3 className="text-xl font-medium text-foreground mb-2">No Similar Songs Found</h3>
+            <p className="text-accent mb-6">
+              Try a different search query.
+            </p>
+            <button
+              onClick={() => {
+                setQuery("");
+                setSearchPerformed(false);
+                setResults([]);
+                setError(null);
+              }}
+              className="px-6 py-2 bg-accent text-foreground rounded-lg hover:bg-accent/80 transition-colors"
+            >
+              Clear Search
+            </button>
+          </div>
+        )}
+      </main>
     </div>
   );
 }

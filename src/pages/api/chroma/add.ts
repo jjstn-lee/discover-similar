@@ -1,23 +1,13 @@
+// pages/api/add.ts
 import type { NextApiRequest, NextApiResponse } from "next";
-import { CloudClient, Collection, Metadata } from "chromadb";
+import { Metadata } from "chromadb";
+import { getMyCollection } from "@/lib/chromadb/chromadb";
 
 interface AddDataRequest {
   ids: string[];
   documents: string[];
   metadatas: Metadata[];
 }
-
-const chromaClient = new CloudClient();
-let myCollection: Collection | null = null;
-
-const getMyCollection = async () => {
-  if (!myCollection) {
-    myCollection = await chromaClient.getOrCreateCollection({
-      name: "myCollection",
-    });
-  }
-  return myCollection;
-};
 
 export default async function handler(
   req: NextApiRequest,

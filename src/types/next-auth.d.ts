@@ -15,10 +15,16 @@ declare module "next-auth/jwt" {
     accessTokenExpires?: number;
     refreshToken?: string;
     error?: string;
-    user?: any;
+    user?: unknown;
   }
 }
 
+export interface SpotifyJwt extends JWT {
+  accessToken: string;
+  refreshToken: string;
+  accessTokenExpires: number;
+  [key: string]: unknown;
+}
 
 export interface SpotifyAccount extends Account {
   access_token: string;

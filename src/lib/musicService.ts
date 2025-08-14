@@ -1,7 +1,7 @@
 type SearchResult = {
   id: string;
   score: number;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 };
 
 type MusicSearchResponse = {

@@ -4,11 +4,27 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { searchSimilarMusic } from "@/lib/musicService";
 
-// type for search results
+// type for search results (matching what your API returns)
 type SearchResult = {
   id: string;
   score: number;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
+};
+
+// Helper functions to safely access metadata properties
+const getMetadataString = (metadata: Record<string, unknown>, key: string): string | undefined => {
+  const value = metadata[key];
+  return typeof value === 'string' ? value : undefined;
+};
+
+const getMetadataNumber = (metadata: Record<string, unknown>, key: string): number | undefined => {
+  const value = metadata[key];
+  return typeof value === 'number' ? value : undefined;
+};
+
+const getMetadataStringArray = (metadata: Record<string, unknown>, key: string): string[] | undefined => {
+  const value = metadata[key];
+  return Array.isArray(value) && value.every(item => typeof item === 'string') ? value : undefined;
 };
 
 export default function Home() {
@@ -49,9 +65,9 @@ export default function Home() {
       } else {
         setError(result.error || "Search failed");
       }
-    } catch (error) {
-      console.error("Error during search:", error);
-      setError(error instanceof Error ? error.message : "An unexpected error occurred");
+    } catch (err) {
+      console.error("Error during search:", err);
+      setError(err instanceof Error ? err.message : "An unexpected error occurred");
     } finally {
       setLoading(false);
     }
@@ -106,7 +122,7 @@ export default function Home() {
                 Find Similar Music
               </h2>
               <p className="text-accent">
-                Describe the type of music you're looking for and we'll find similar songs from your library
+                Describe the type of music you&apos;re looking for and we&apos;ll find similar songs from your library
               </p>
             </div>
 
@@ -129,7 +145,7 @@ export default function Home() {
                     : "bg-primary hover:bg-primary/90"
                 }`}
               >
-                {loading ? "Search Similar Music" : "Search Similar Music"}
+                {loading ? "Searching..." : "Search Similar Music"}
               </button>
             </div>
           </div>
@@ -141,7 +157,7 @@ export default function Home() {
             <div className="animate-spin rounded-full h-16 w-16 border-4 border-accent border-t-primary mb-6"></div>
             <h3 className="text-xl font-medium text-foreground mb-2">Searching for similar songs...</h3>
             <p className="text-accent text-center">
-              Analyzing your input library and finding the best matches
+              Analyzing your library and finding the best matches
             </p>
           </div>
         )}
@@ -185,17 +201,21 @@ export default function Home() {
                         </div>
                         <div>
                           <div className="font-semibold text-foreground text-lg">
-                            {result.metadata.name || result.metadata.title || "Unknown Title"}
+                            {getMetadataString(result.metadata, 'name') || 
+                             getMetadataString(result.metadata, 'title') || 
+                             "Unknown Title"}
                           </div>
                           <div className="text-accent">
-                            {result.metadata.artist || result.metadata.artists?.[0] || "Unknown Artist"}
+                            {getMetadataString(result.metadata, 'artist') || 
+                             (getMetadataStringArray(result.metadata, 'artists')?.[0]) || 
+                             "Unknown Artist"}
                           </div>
                         </div>
                       </div>
                       
-                      {result.metadata.album && (
+                      {getMetadataString(result.metadata, 'album') && (
                         <div className="text-accent/70 text-sm mb-3 ml-11">
-                          Album: {result.metadata.album}
+                          Album: {getMetadataString(result.metadata, 'album')}
                         </div>
                       )}
                     </div>
@@ -208,30 +228,32 @@ export default function Home() {
                   </div>
                   
                   {/* Audio Features */}
-                  {(result.metadata.danceability || result.metadata.energy || result.metadata.valence) && (
+                  {(getMetadataNumber(result.metadata, 'danceability') || 
+                    getMetadataNumber(result.metadata, 'energy') || 
+                    getMetadataNumber(result.metadata, 'valence')) && (
                     <div className="mt-4 pt-4 border-t border-accent/30 ml-11">
                       <div className="flex flex-wrap gap-4 text-sm">
-                        {result.metadata.danceability && (
+                        {getMetadataNumber(result.metadata, 'danceability') && (
                           <div className="flex items-center gap-2">
                             <span className="text-accent">Danceability:</span>
                             <div className="bg-accent/20 px-2 py-1 rounded text-foreground">
-                              {Math.round(result.metadata.danceability * 100)}%
+                              {Math.round(getMetadataNumber(result.metadata, 'danceability')! * 100)}%
                             </div>
                           </div>
                         )}
-                        {result.metadata.energy && (
+                        {getMetadataNumber(result.metadata, 'energy') && (
                           <div className="flex items-center gap-2">
                             <span className="text-accent">Energy:</span>
                             <div className="bg-accent/20 px-2 py-1 rounded text-foreground">
-                              {Math.round(result.metadata.energy * 100)}%
+                              {Math.round(getMetadataNumber(result.metadata, 'energy')! * 100)}%
                             </div>
                           </div>
                         )}
-                        {result.metadata.valence && (
+                        {getMetadataNumber(result.metadata, 'valence') && (
                           <div className="flex items-center gap-2">
                             <span className="text-accent">Mood:</span>
                             <div className="bg-accent/20 px-2 py-1 rounded text-foreground">
-                              {Math.round(result.metadata.valence * 100)}%
+                              {Math.round(getMetadataNumber(result.metadata, 'valence')! * 100)}%
                             </div>
                           </div>
                         )}

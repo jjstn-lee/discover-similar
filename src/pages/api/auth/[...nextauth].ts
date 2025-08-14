@@ -2,7 +2,8 @@
 import NextAuth from "next-auth";
 import SpotifyProvider from "next-auth/providers/spotify";
 import type { NextAuthOptions } from "next-auth";
-import { SpotifyAccount } from "@/types/next-auth";
+import { SpotifyAccount, SpotifyJwt } from "@/types/next-auth";
+import type { JWT } from "next-auth/jwt";
 
 // Define scopes in one place to avoid mismatches
 const SPOTIFY_SCOPES = [
@@ -14,7 +15,16 @@ const SPOTIFY_SCOPES = [
   "playlist-modify-private"
 ].join(" ");
 
-async function refreshAccessToken(token: any) {
+// Type guard to check if token is a SpotifyJwt
+function isSpotifyJwt(token: JWT): token is SpotifyJwt {
+  return (
+    typeof token.accessToken === 'string' &&
+    typeof token.refreshToken === 'string' &&
+    typeof token.accessTokenExpires === 'number'
+  );
+}
+
+async function refreshAccessToken(token: SpotifyJwt): Promise<JWT> {
   try {
     const basicAuth = Buffer.from(
       `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
@@ -70,7 +80,7 @@ export const authOptions: NextAuthOptions = {
     error: "/auth/error", // Custom error page
   },
   callbacks: {
-    async jwt({ token, account }) {
+    async jwt({ token, account }): Promise<JWT> {
       // Initial sign in
       if (account && account.provider === "spotify") {
         const spotifyAccount = account as SpotifyAccount;
@@ -84,12 +94,20 @@ export const authOptions: NextAuthOptions = {
       }
 
       // If token is still valid, return it
-      if (Date.now() < (token.accessTokenExpires as number)) {
+      if (token.accessTokenExpires && Date.now() < (token.accessTokenExpires as number)) {
         return token;
       }
       
-      // Token expired, refresh it
-      return await refreshAccessToken(token);
+      // Token expired, refresh it - but only if we have a valid SpotifyJwt
+      if (isSpotifyJwt(token)) {
+        return await refreshAccessToken(token);
+      }
+
+      // If we don't have the required properties, return an error token
+      return {
+        ...token,
+        error: "RefreshAccessTokenError",
+      };
     },
     async session({ session, token }) {
       session.accessToken = token.accessToken;

@@ -1,7 +1,7 @@
-import { ChatPromptTemplate, HumanMessagePromptTemplate } from "@langchain/core/prompts";
+import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { StructuredOutputParser } from "langchain/output_parsers";
-import { searchSimilarVectors } from "@/lib/chromadb/cosine_similarity";
+// import { searchSimilarVectors } from "@/lib/chromadb/cosine_similarity";
 import { z } from "zod";
 
 // zod schema to validaate JSON returned by LLM
@@ -32,14 +32,6 @@ const schema = z.object({
     mode: z.string()
   })
 });
-
-type MusicSeedData = {
-  seed_artists: string[];
-  seed_genres: string[];
-  seed_tracks: string[];
-  attribute_vector: (number | string)[];
-};
-
 
 const parser = StructuredOutputParser.fromZodSchema(schema);
 export const formatInstructions = parser.getFormatInstructions();
@@ -131,12 +123,12 @@ export async function interpretMusic(userInput: string): Promise<number[] | null
 
 // parses recommendation JSON from LLM and turns it into a normalized vector
 export function reccToVector(jsonData: string): number[] {
-  let parsed: any;
+  let parsed;
 
   try {
     parsed = JSON.parse(jsonData);
   } catch (error) {
-    throw new Error("Invalid JSON string provided.");
+    throw new Error(`Invalid JSON string provided: ${error}.`);
   }
 
   const vector: number[] = [];
@@ -150,65 +142,70 @@ export function reccToVector(jsonData: string): number[] {
     "instrumentalness",
     "liveness",
     "valence",
-  ];
-  boundedKeys.forEach((key) => {
-    const val = parsed.bounded_cols[key];
-    const num = Number(val);
-    if (isNaN(num)) throw new Error(`Invalid number in bounded_cols: ${val}`);
-    vector.push(num);
-  });
+    ];
+  if (parsed) {
+      boundedKeys.forEach((key) => {
+      const val = parsed.bounded_cols[key];
+      const num = Number(val);
+      if (isNaN(num)) throw new Error(`Invalid number in bounded_cols: ${val}`);
+      vector.push(num);
+    });
 
-  // min-max columns
-  const minmaxKeys = ["tempo", "duration_ms", "time_signature", "key"];
-  minmaxKeys.forEach((key) => {
-    const val = parsed.minmax_cols[key];
-    const num = Number(val);
-    if (isNaN(num)) throw new Error(`Invalid number in minmax_cols: ${val}`);
-    vector.push(num);
-  });
+    // min-max columns
+    const minmaxKeys = ["tempo", "duration_ms", "time_signature", "key"];
+    minmaxKeys.forEach((key) => {
+      const val = parsed.minmax_cols[key];
+      const num = Number(val);
+      if (isNaN(num)) throw new Error(`Invalid number in minmax_cols: ${val}`);
+      vector.push(num);
+    });
 
-  // z-score columns
-  const zscoreKeys = ["loudness"];
-  zscoreKeys.forEach((key) => {
-    const val = parsed.zscore_cols[key];
-    const num = Number(val);
-    if (isNaN(num)) throw new Error(`Invalid number in zscore_cols: ${val}`);
-    vector.push(num);
-  });
+    // z-score columns
+    const zscoreKeys = ["loudness"];
+    zscoreKeys.forEach((key) => {
+      const val = parsed.zscore_cols[key];
+      const num = Number(val);
+      if (isNaN(num)) throw new Error(`Invalid number in zscore_cols: ${val}`);
+      vector.push(num);
+    });
 
-  // mode columns
-  const modeKeys = ["mode"];
-  modeKeys.forEach((key) => {
-    const val = parsed.mode_cols[key];
-    const num = Number(val);
-    if (isNaN(num)) throw new Error(`Invalid number in mode_cols: ${val}`);
-    vector.push(num);
-  });
+    // mode columns
+    const modeKeys = ["mode"];
+    modeKeys.forEach((key) => {
+      const val = parsed.mode_cols[key];
+      const num = Number(val);
+      if (isNaN(num)) throw new Error(`Invalid number in mode_cols: ${val}`);
+      vector.push(num);
+    });
 
-  // corresponds to column order in chromadb
-  const boundedIdx = [0, 1, 2, 3, 4, 5, 6];  // danceability → valence
-  const minmaxIdx = [7, 8, 9, 10];           // tempo, duration_ms, time_signature, key
-  const zscoreIdx = [11];                    // loudness
-  const modeIdx: number[] = [12];            // mode
+    // corresponds to column order in chromadb
+    const boundedIdx = [0, 1, 2, 3, 4, 5, 6];  // danceability → valence
+    const minmaxIdx = [7, 8, 9, 10];           // tempo, duration_ms, time_signature, key
+    const zscoreIdx = [11];                    // loudness
+    const modeIdx: number[] = [12];            // mode
 
-  // bounded
-  const bounded = boundedIdx.map((i) => vector[i]);
+    // bounded
+    const bounded = boundedIdx.map((i) => vector[i]);
 
-  // min-max scaling
-  const minmaxVals = minmaxIdx.map((i) => vector[i]);
-  const min = Math.min(...minmaxVals);
-  const max = Math.max(...minmaxVals);
-  const minmax = minmaxVals.map((v) => (max - min === 0 ? 0.5 : (v - min) / (max - min)));
+    // min-max scaling
+    const minmaxVals = minmaxIdx.map((i) => vector[i]);
+    const min = Math.min(...minmaxVals);
+    const max = Math.max(...minmaxVals);
+    const minmax = minmaxVals.map((v) => (max - min === 0 ? 0.5 : (v - min) / (max - min)));
 
-  // z-score scaling
-  const zVals = zscoreIdx.map((i) => vector[i]);
-  const mean = zVals.reduce((sum, v) => sum + v, 0) / zVals.length;
-  const std = Math.sqrt(zVals.reduce((sum, v) => sum + (v - mean) ** 2, 0) / zVals.length);
-  const zscore = zVals.map((v) => (std === 0 ? 0 : (v - mean) / std));
+    // z-score scaling
+    const zVals = zscoreIdx.map((i) => vector[i]);
+    const mean = zVals.reduce((sum, v) => sum + v, 0) / zVals.length;
+    const std = Math.sqrt(zVals.reduce((sum, v) => sum + (v - mean) ** 2, 0) / zVals.length);
+    const zscore = zVals.map((v) => (std === 0 ? 0 : (v - mean) / std));
 
-  // mode columns (keep as is)
-  const mode = modeIdx.map((i) => vector[i]);
+    // mode columns (keep as is)
+    const mode = modeIdx.map((i) => vector[i]);
 
-  return [...bounded, ...minmax, ...zscore, ...mode];
+    return [...bounded, ...minmax, ...zscore, ...mode];
+  } else {
+    return [0,0,0,0,0,0,0,0,0,0,0,0,0]; // SHOULD NEVER HAPPEN
+  }
+
 }
 

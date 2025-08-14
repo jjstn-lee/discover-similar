@@ -1,5 +1,5 @@
-import type { NextApiRequest, NextApiResponse } from "next";
-import { CloudClient, Collection, Metadata } from "chromadb";
+// import type { NextApiRequest, NextApiResponse } from "next";
+import { CloudClient, Collection } from "chromadb";
 
 let chromaClient = new CloudClient();
 let myCollection: Collection | null = null;

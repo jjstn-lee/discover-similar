@@ -1,11 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { interpretMusic } from "@/lib/interpretPrompt";
 import { searchSimilarVectors } from "@/lib/chromadb/cosine_similarity";
 
 type SearchResult = {
   id: string;
   score: number;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 };
 
 type MusicSearchResponse = {

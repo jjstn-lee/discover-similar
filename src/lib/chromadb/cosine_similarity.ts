@@ -1,10 +1,9 @@
 import { getMyCollection } from './chromadb';
-import type { Collection } from 'chromadb';
 
 type SearchResult = {
   id: string;
   score: number;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 };
 
 /**

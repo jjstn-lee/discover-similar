@@ -32,7 +32,7 @@ export default function SearchInterface() {
   const [error, setError] = useState<string | null>(null);
   const [searchPerformed, setSearchPerformed] = useState(false);
 
-  const handleSearch = async () => {
+    const handleSearch = async () => {
     if (!query.trim()) {
       setError("Please enter a search query");
       return;
@@ -44,16 +44,24 @@ export default function SearchInterface() {
     setSearchPerformed(true);
 
     try {
-      console.log("RECEIVED QUERY, BUT DOING NOTHING:", query);
-      // const result = await discover(query, 10);
+      const response = await fetch('/api/discover', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: query,
+          limit: 10,
+        }),
+      });
+
+      const result = await response.json();
       
-      // console.log("Search result:", result);
-      
-      // if (result.success && result.links) {
-      //   setResults(result.links);
-      // } else {
-      //   setError(result.error || "Search failed");
-      // }
+      if (result.success && result.tracks) {
+        setResults(result.tracks);
+      } else {
+        setError(result.error || "Search failed");
+      }
     } catch (err) {
       console.error("Error during search:", err);
       setError(err instanceof Error ? err.message : "An unexpected error occurred");

@@ -24,16 +24,9 @@ export async function discover(
     }
     // 1. call extract on userinput
     const extractedData = await extractEntries(userInput);
-    console.log('Extracted entries:', extractedData);
+    console.log('Extracted entries: ', extractedData);
+    console.log('validate JSON: ', validateExtractedData(extractedData))
 
-
-    // 2. spotify search on the seed(s); if they return nothing, then don't do anything
-
-    
-    // 3. call the seedTweaker on the spotify search result
-
-
-    // 4. take tweaked seed vector and call recco reccomendations endpoint
 
 
 
@@ -43,4 +36,19 @@ export async function discover(
 
 
     return DiscoverResults; // placeholder
+}
+
+function validateExtractedData(obj: any) {
+    return (
+        typeof obj === "object" && obj !== null &&
+        Array.isArray(obj.song_titles) &&
+        obj.song_titles.every((s: any) => typeof s === "string") &&
+        Array.isArray(obj.artists) &&
+        obj.artists.every((s: any) => typeof s === "string") &&
+        Array.isArray(obj.albums) &&
+        obj.albums.every((s: any) => typeof s === "string") &&
+        Array.isArray(obj.playlists) &&
+        obj.playlists.every((s: any) => typeof s === "string") &&
+        typeof obj.user_prompt === "string"
+    );
 }

@@ -4,13 +4,9 @@ import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { StructuredOutputParser } from "langchain/output_parsers";
 
-
 // TEMP
 import { GoogleGenAI } from "@google/genai";
 const genAI = new GoogleGenAI({apiKey: process.env.GOOGLE_API_KEY});
-
-
-
 
 import { z } from "zod";
 
@@ -54,6 +50,9 @@ const extractPrompt = ChatPromptTemplate.fromMessages([
     → artists: ["Taylor Swift"], albums: ["Folklore"]  
     ✓ "Upbeat pop music for working out"
     → user_prompt: "Upbeat pop music for working out"
+    ✓ "Playlists similar to the following but faster: https://open.spotify.com/playlist/37i9dQZF1EJAAsDSAzQoOn?si=ee81544e48924878" 
+    → playlists: ["https://open.spotify.com/playlist/37i9dQZF1EJAAsDSAzQoOn?si=ee81544e48924878]"
+
 
     OUTPUT STRUCTURE:
     Return ONLY a valid JSON object with this exact structure:
@@ -72,7 +71,7 @@ const extractPrompt = ChatPromptTemplate.fromMessages([
     - Use double quotes for all strings and keys
     - Ensure proper JSON syntax (commas, brackets, quotes)
     - Arrays should contain strings only
-    - If no entities are found, only include user_prompt with the full input
+    - If no entities are found, include the empty array or string.
 
     {formatInstructions}`
   ],
@@ -116,12 +115,21 @@ export async function extractEntries(userInput: string) {
 
     const cleanedText = rawText.replace(/```json|```/g, "").trim();
     
-    const result = await parser.parse(cleanedText);
+    let result = await parser.parse(cleanedText);
 
-    console.log("Parsed result:", result);
-    return result;
+    const safeResult = {
+      song_titles: result.song_titles || [],
+      artists: result.artists || [],
+      albums: result.albums || [],
+      playlists: result.playlists || [],
+      user_prompt: result.user_prompt || ""
+    };
+
+    console.log("Parsed result:", safeResult);
+    return safeResult;
   } catch (err) {
     console.error("Failed to parse or validate 'extractEntries' LLM response:", err);
     return null;
   }
 }
+

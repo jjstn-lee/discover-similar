@@ -5,6 +5,7 @@ import 'server-only';
 import { SpotifyTrack } from '@/types/spotifyTrack';
 import { extractEntries } from '@/lib/ai/extractAgent';
 import { tweakVector } from '@/lib/ai/tweakerAgent';
+import { searchSeeds } from '@/app/api/searchSeeds/route';
 
 export type DiscoverResults = {
   success: boolean;
@@ -27,11 +28,9 @@ export async function discover(
     console.log('Extracted entries: ', extractedData);
     console.log('validate JSON: ', validateExtractedData(extractedData))
 
-
-
-
-
-
+    // 2. search for the extracted seeds via spotify web api
+    const searchResults = await searchSeeds(extractedData);
+    console.log('searchResults: ', searchResults);
 
 
 

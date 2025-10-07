@@ -6,6 +6,7 @@ import { SpotifyTrack } from '@/types/spotifyTrack';
 import { extractEntries } from '@/lib/ai/extractAgent';
 import { tweakVector } from '@/lib/ai/tweakerAgent';
 import { searchSeeds } from '@/app/api/searchSeeds/route';
+import { seedsToTracks } from '@/app/api/seedsToTracks.ts/route';
 
 export type DiscoverResults = {
   success: boolean;
@@ -32,6 +33,9 @@ export async function discover(
     const searchResults = await searchSeeds(extractedData);
     console.log('searchResults: ', searchResults);
 
+    // 3. turn seeds into trackIds
+    const tracks = await seedsToTracks(searchResults);
+    console.log('tracks: ', tracks);
 
 
     return DiscoverResults; // placeholder

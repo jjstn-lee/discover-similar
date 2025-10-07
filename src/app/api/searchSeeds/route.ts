@@ -10,6 +10,7 @@
 
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { SearchParams, SpotifyTrack, SpotifyArtist, SpotifyPlaylist, ResultTuple, searchSeedsResult } from "@/types/interfaces";
 
 const scopes = [
   "user-read-email",
@@ -25,57 +26,7 @@ export interface SpotifyRequestOptions extends RequestInit {
   accessToken?: string; // optional, can be read from cookies
 }
 
-interface SearchParams {
-    song_titles: string[];
-    artists: string[];
-    albums: string[];
-    playlists: string[];
-    user_prompt: string;
-}
 
-interface SpotifyTrack {
-    id: string;
-    name: string;
-    artists: { name: string; id: string }[];
-    album: { name: string; id: string };
-    uri: string;
-    external_urls: { spotify: string };
-}
-
-interface SpotifyArtist {
-    id: string;
-    name: string;
-    uri: string;
-    external_urls: { spotify: string };
-    genres: string[];
-}
-
-interface SpotifyAlbum {
-    id: string;
-    name: string;
-    artists: { name: string; id: string }[];
-    uri: string;
-    external_urls: { spotify: string };
-    release_date: string;
-}
-
-interface SpotifyPlaylist {
-    id: string;
-    name: string;
-    owner: { display_name: string };
-    uri: string;
-    external_urls: { spotify: string };
-    tracks: { total: number };
-}
-
-interface SearchResults {
-    tracks: SpotifyTrack[];
-    artists: SpotifyArtist[];
-    albums: SpotifyAlbum[];
-    playlists: SpotifyPlaylist[];
-}
-
-type ResultTuple = [SearchResults, string];
 
 // Helper to clean and format search queries
 function cleanQuery(query: string): string {
@@ -113,7 +64,7 @@ export async function searchSeeds(searchParams: any): Promise<ResultTuple> {
     // simple typecast to interface; kinda unelegant but w/e, not a biggie
     const params = searchParams as SearchParams;
 
-    const results: SearchResults = {
+    const results: searchSeedsResult = {
         tracks: [],
         artists: [],
         albums: [],
@@ -142,7 +93,7 @@ export async function searchSeeds(searchParams: any): Promise<ResultTuple> {
         const params = new URLSearchParams({
             q: cleanedQuery,
             type: type,
-            limit: '10'
+            limit: '5'
         });
         
         console.log('Fetching...:', `${baseUrl}?${params}`)
@@ -262,6 +213,14 @@ export async function searchSeeds(searchParams: any): Promise<ResultTuple> {
     if (results.artists.length > 0) {
         console.log('Found artists:', results.artists.map(a => a.name).join(', '));
     }
+
+    const artists: SpotifyArtist[] = []
+    for (const artist of results.artists) {
+        if (params.artists.some(param => param.toLowerCase() === artist.name.toLowerCase())) {
+            artists.push(artist);
+        }
+    }
+    results.artists = artists;
 
     // Return results as a tuple with the user prompt
     return [results, params.user_prompt];

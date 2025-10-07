@@ -5,7 +5,7 @@
 //   artists: [ 'SZA' ],
 //   albums: [],
 //   playlists: [],
-//   user_prompt: 'sadder'
+//   user_prompt: 'sadder',
 // }
 
 import { getServerSession } from "next-auth";
